@@ -5,7 +5,7 @@ _now = time.time
 import curses
 import argparse
 
-GiMiKify       = 1 # show plain numbers or units (Kibi/Kilo...)
+GiMiKify       = True # show plain numbers or units (Kibi/Kilo...)
 UNITS          = 1024 # 1000 for requests
 SCREEN         = None
 LOG            = None
@@ -229,7 +229,7 @@ try:
       if chr(key) in 'QqXx':
         _atexit(); print(); sys.exit(0)
       elif chr(key) in 'Ii':
-        GiMiKify ^= 1
+        GiMiKify = not GiMiKify
       elif chr(key) in '0123456789':
         k = key - 48
         INTERVAL = 10 if k == 0 else k
@@ -264,4 +264,3 @@ except Exception as E:
 _atexit()
 print() # empty line for the prompt
 sys.exit(0)
-
