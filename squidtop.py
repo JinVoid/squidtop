@@ -1,23 +1,21 @@
 #!/usr/bin/python3
 import sys
 import time
-get_time = time.time
+_now = time.time
 import curses
+import argparse
 
 GiMiKify       = 1 # show plain numbers or units (Kibi/Kilo...)
 UNITS          = 1024 # 1000 for requests
 SCREEN         = None
 LOG            = None
-LOG_IDX_USER   = 2
-LOG_IDX_SIZE   = 4
-LOG_IDX_SITE   = 6
 INTERVAL       = 1 # refresh rate
 INTERVAL_MIN   = 0.1 # main loop sleep, affects user input responsiveness
-TOP_NUM        = 50 # toplist default size
+TOP_NUM        = 50 # toplist default size, adapts to screen
 MODE           = 0
 MODE_STR       = ("Bytes/User", "Requests/User", "Bytes/Site", "Requests/Site")
 MODE_SWITCH    = False
-START_TIME     = get_time()
+START_TIME     = _now()
 NEXT_TIME      = START_TIME + INTERVAL
 SQUID_STATS    = (0, 0, 0, 0)
 REQ_TOTAL      = 0
@@ -40,8 +38,9 @@ def init_curses():
   SCREEN.keypad(True); SCREEN.nodelay(True)
 
 def _atexit():
-  curses.echo(); curses.nocbreak(); curses.curs_set(1)
-  SCREEN.keypad(False); curses.endwin()
+  if SCREEN:
+    curses.echo(); curses.nocbreak(); curses.curs_set(1)
+    SCREEN.keypad(False); curses.endwin()
   if LOG:
     LOG.close()
 
@@ -190,15 +189,40 @@ def check_log():
     return True
   return False
 
+def get_args():
+  global LOG_IDX_USER, LOG_IDX_SIZE, LOG_IDX_SITE
+  argparser = argparse.ArgumentParser(description='A tool for monitoring squid '
+    "server's top users and the sites they use.")
+  argparser.add_argument('-f', '--file', dest='logfile', nargs='?', help="squid"
+    "'s access log file (/var/log/squid/access.log is the default).",
+    default="/var/log/squid/access.log")
+  argparser.add_argument('-u', '--user', dest='user', nargs='?', type=int,
+    help="user field index in a log string (that field contains the client "
+    "address). For the default format of access log this is 2.", default=2)
+  argparser.add_argument('-s', '--size', dest='size', nargs='?', type=int,
+    help="size field index in a log string (that field contains the amount of "
+    "data in bytes delivered to the client). For the default format of access "
+    "log this is 4.", default=4)
+  argparser.add_argument('-l', '--link', dest='link', nargs='?', type=int,
+    help="URL field index in a log string (that field contains the URL). For "
+    "the default format of access log this is 6.", default=6)
+  args = argparser.parse_args()
+  if args.user != args.size != args.link:
+    LOG_IDX_USER = args.user; LOG_IDX_SIZE = args.size; LOG_IDX_SITE = args.link
+  else:
+    print("Error! Field indices must not match."); sys.exit(1)
+  return args
+
 try:
-  LOG = open("/var/log/squid/access.log", 'r')
+  args = get_args()
+  LOG = open(args.logfile, 'r')
   if not check_log():
     sys.exit(1)
   LOG.seek(0,2) # seek to EOF
   init_curses()
-  TOP_NUM = SCREEN.getmaxyx()[0]
+  TOP_NUM = SCREEN.getmaxyx()[0] - 3
   while True:
-    t = get_time()
+    t = _now()
     update_ratings(read_log())
     key = SCREEN.getch()
     if key != -1:
