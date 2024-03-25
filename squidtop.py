@@ -168,12 +168,9 @@ def read_log():
   requests = list()
   while line:
     l = line.split()
-    try:
-      user = l[LOG_IDX_USER]
-      size = int(l[LOG_IDX_SIZE], 10)
-      site = l[LOG_IDX_SITE]
-    except Exception as E:
-      _exit(1, E)
+    user = l[LOG_IDX_USER]
+    size = int(l[LOG_IDX_SIZE], 10)
+    site = l[LOG_IDX_SITE]
     if user and site:
       requests.append((user, size, site))
     line = LOG.readline()
@@ -194,8 +191,6 @@ def check_log():
   except ValueError:
     print("Wrong index for bytes field in the log")
     return False
-  except Exception as E:
-    _exit(1, E)
   if user and site:
     return True
   return False
