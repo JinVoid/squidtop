@@ -38,7 +38,7 @@ def init_curses():
   SCREEN = curses.initscr()
   curses.noecho(); curses.cbreak(); curses.curs_set(0)
   SCREEN.keypad(True); SCREEN.nodelay(True)
-  TOP_NUM = SCREEN.getmaxyx()[0] - 5
+  TOP_NUM = SCREEN.getmaxyx()[0] - 1
 
 def _exit(status, message):
   if SCREEN:
@@ -131,7 +131,7 @@ def update_ratings(requests):
   REQ_TOTAL += len(requests); REQ_RECENT += len(requests)
   for user, size, site in requests:
     REQ_BYTES_TOTAL += size; REQ_BYTES_RECENT += size
-    for ratings, toplist, item, num in ( 
+    for ratings, toplist, item, num in (
       (REQ_USER, TOP_REQ_USER, user, 1),
       (REQ_SITE, TOP_REQ_SITE, site, 1),
       (BYTES_USER, TOP_BYTES_USER, user, size),
@@ -147,7 +147,7 @@ def update_ratings(requests):
       if add_item:
         toplist.append((item, value))
       toplist.sort(key=lambda x: x[1], reverse=True)
-      if len(toplist) > TOP_NUM: 
+      if len(toplist) > TOP_NUM:
         _ = toplist.pop()
 
 def get_squid_stats():
