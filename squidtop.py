@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+# TODO
+# detect changes to curses.maxyx.
+# cmdline args!!!
+# worker thread?
+
 import os
 import sys
 import time
@@ -9,7 +14,7 @@ import argparse
 GiMiKify         = True # show plain numbers or units (Kibi/Kilo...)
 SCREEN           = None
 LOG              = None
-INTERVAL         = 1 # refresh rate in seconds
+INTERVAL         = 2 # refresh rate in seconds
 INTERVAL_MIN     = 0.1 # main loop sleep; affects user input responsiveness
 TOP_NUM          = 100 # toplist default size; adapts to screen
 MODE             = 0
@@ -22,7 +27,7 @@ REQ_TOTAL        = 0
 REQ_RECENT       = 0
 REQ_BYTES_TOTAL  = 0
 REQ_BYTES_RECENT = 0
-REQ_TIME         = START_TIME
+REQ_TIME         = START_TIME # an interval for averages
 USERS            = set()
 REQ_SITE         = dict()
 REQ_USER         = dict()
@@ -52,14 +57,14 @@ def _exit(status, message):
   except SystemExit:
     os._exit(status)
 
-def gimikify(n, UNITS=1024):
+def gimikify(n, units=1024):
   suffix = 'KMGTPEZY'
-  d = UNITS; j = 0
+  d = units; j = 0
   while d < n:
-    if (n / d) < UNITS:
+    if (n / d) < units:
       break
-    d *= UNITS; j += 1
-  if n > (UNITS - 1):
+    d *= units; j += 1
+  if n > (units - 1):
     return "%.2f" % (n / d) + suffix[j]
   else:
     return str(n)
@@ -88,6 +93,11 @@ def parse_socket(s):
   addr = ''.join(addr)
   return addr + ':' + port
 
+def sort_and_trim(toplist):
+  toplist.sort(key=lambda x: x[1], reverse=True)
+  while len(toplist) > TOP_NUM:
+    _ = toplist.pop()
+
 def draw_screen(t):
   global REQ_RECENT, REQ_BYTES_RECENT, REQ_TIME
   Y, X = SCREEN.getmaxyx()
@@ -114,15 +124,16 @@ def draw_screen(t):
     SCREEN.addnstr(3, 0, s, X)
   ratings = (BYTES_USER, REQ_USER, BYTES_SITE, REQ_SITE)[MODE]
   toplist = (TOP_BYTES_USER, TOP_REQ_USER, TOP_BYTES_SITE, TOP_REQ_SITE)[MODE]
-  UNITS = 1000 if MODE & 1 else 1024
+  sort_and_trim(toplist)
+  units = 1000 if MODE & 1 else 1024
   if len(toplist):
-    j = len(str(toplist[0][1])) if not GiMiKify else len(gimikify(toplist[0][1], UNITS))
+    j = len(str(toplist[0][1])) if not GiMiKify else len(gimikify(toplist[0][1], units))
     j = 10 if GiMiKify and j < 10 else j
     for i in range(4, Y):
       if i > len(toplist):
         break
       item, value = toplist[i-1]
-      value = gimikify(value, UNITS) if GiMiKify else str(value)
+      value = gimikify(value, units) if GiMiKify else str(value)
       SCREEN.addnstr(i, 0, value.rjust(j) + "  " + item, X)
   SCREEN.refresh()
 
@@ -143,12 +154,12 @@ def update_ratings(requests):
       for i, t in enumerate(toplist):
         if t[0] == item:
           toplist[i] = (item, value)
-          add_item = False; break
+          add_item = False
+          break
       if add_item:
         toplist.append((item, value))
-      toplist.sort(key=lambda x: x[1], reverse=True)
-      if len(toplist) > TOP_NUM:
-        _ = toplist.pop()
+      if len(toplist) > (TOP_NUM+50):
+        sort_and_trim(toplist)
 
 def get_squid_stats():
   users = set(); conn = 0; estab = 0
@@ -243,12 +254,10 @@ if __name__ == '__main__':
             NEXT_TIME = t
         elif chr(key) in 'Mm':
           MODE = (MODE + 1) & 3; MODE_SWITCH = True
-          #UNITS = 1000 if MODE & 1 else 1024
         elif chr(key) in 'SsUu':
           MODE ^= 2; MODE_SWITCH = True
         elif chr(key) in 'BbRr':
           MODE ^= 1; MODE_SWITCH = True
-          #UNITS = 1000 if MODE & 1 else 1024
       if MODE_SWITCH:
         MODE_SWITCH = False
         draw_screen(t)
