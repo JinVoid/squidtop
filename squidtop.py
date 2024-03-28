@@ -1,8 +1,4 @@
 #!/usr/bin/python3
-# TODO
-# detect changes to curses.maxyx.
-# cmdline args!!!
-# worker thread?
 
 import os
 import sys
@@ -93,14 +89,12 @@ def parse_socket(s):
   addr = ''.join(addr)
   return addr + ':' + port
 
-def sort_and_trim(toplist):
-  toplist.sort(key=lambda x: x[1], reverse=True)
-  while len(toplist) > TOP_NUM:
-    _ = toplist.pop()
-
 def draw_screen(t):
-  global REQ_RECENT, REQ_BYTES_RECENT, REQ_TIME
-  Y, X = SCREEN.getmaxyx()
+  global REQ_RECENT, REQ_BYTES_RECENT, REQ_TIME, TOP_NUM
+  ratings = (BYTES_USER, REQ_USER, BYTES_SITE, REQ_SITE)[MODE]
+  toplist = (TOP_BYTES_USER, TOP_REQ_USER, TOP_BYTES_SITE, TOP_REQ_SITE)[MODE]
+  units = 1000 if MODE & 1 else 1024
+  Y, X = SCREEN.getmaxyx(); TOP_NUM = Y - 1
   SCREEN.clear()
   if Y > 0:
     s = "Users(Act/Tot): %i/%i, Conn(Estab/Tot): %i/%i" % SQUID_STATS
@@ -115,17 +109,14 @@ def draw_screen(t):
     avg = REQ_BYTES_TOTAL / (t - START_TIME)
     avg = gimikify(avg) if GiMiKify else str(avg)
     tot = gimikify(REQ_BYTES_TOTAL) if GiMiKify else str(REQ_BYTES_TOTAL)
-    s = "Bytes(Last,Avg,Tot): %s, %s, %s" % (last, avg, tot)
+    s = "Bytes(Last,Avg,Tot): %s, %s, %s; Top: %i" % (
+      last, avg, tot, len(toplist))
     SCREEN.addnstr(2, 0, s, X)
   REQ_RECENT = 0; REQ_BYTES_RECENT = 0; REQ_TIME = t
   if Y > 3:
     s = "Mode: " + MODE_STR[MODE] + ", Interval: " + str(INTERVAL) +\
       "s, Time elapsed: %s" % time_conv(int(t - START_TIME))
     SCREEN.addnstr(3, 0, s, X)
-  ratings = (BYTES_USER, REQ_USER, BYTES_SITE, REQ_SITE)[MODE]
-  toplist = (TOP_BYTES_USER, TOP_REQ_USER, TOP_BYTES_SITE, TOP_REQ_SITE)[MODE]
-  sort_and_trim(toplist)
-  units = 1000 if MODE & 1 else 1024
   if len(toplist):
     j = len(str(toplist[0][1])) if not GiMiKify else len(gimikify(toplist[0][1], units))
     j = 10 if GiMiKify and j < 10 else j
@@ -150,16 +141,37 @@ def update_ratings(requests):
       value = ratings.get(item, 0)
       value += num
       ratings[item] = value
-      add_item = True
-      for i, t in enumerate(toplist):
-        if t[0] == item:
-          toplist[i] = (item, value)
-          add_item = False
-          break
-      if add_item:
-        toplist.append((item, value))
-      if len(toplist) > (TOP_NUM+50):
-        sort_and_trim(toplist)
+      if len(toplist) < TOP_NUM:
+        add_item = True; i = 0
+        while i < len(toplist):
+          if value >= toplist[i][1]:
+            add_item = False
+            toplist.insert(i, (item, value))
+            if i < len(toplist)-1:
+              j = i+1
+              while j < len(toplist):
+                if toplist[j][0] == item:
+                  _ = toplist.pop(j); break
+                j += 1
+            break
+          i += 1
+        if add_item:
+          toplist.append((item, value))
+      elif value > toplist[-1][1]:
+        i = 0
+        while i < len(toplist):
+          if value >= toplist[i][1]:
+            toplist.insert(i, (item, value))
+            if i < len(toplist)-1:
+              j = i+1
+              while j < len(toplist):
+                if toplist[j][0] == item:
+                  _ = toplist.pop(j); break
+                j += 1
+            if len(toplist) > TOP_NUM:
+              _ = toplist.pop()
+            break
+          i += 1
 
 def get_squid_stats():
   users = set(); conn = 0; estab = 0
@@ -261,6 +273,7 @@ if __name__ == '__main__':
       if MODE_SWITCH:
         MODE_SWITCH = False
         draw_screen(t)
+        NEXT_TIME += INTERVAL
         continue
       if t >= NEXT_TIME:
         #if t > (NEXT_TIME + 2 * INTERVAL): # lagged too much
@@ -275,3 +288,8 @@ if __name__ == '__main__':
   except Exception as E:
     _exit(1, E)
 
+# TODO
+# cmdline args!!!
+# worker thread?
+# per-user top sites by requests/bytes
+# per-site top users by bytes
