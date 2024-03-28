@@ -120,12 +120,12 @@ def draw_screen(t):
   if len(toplist):
     j = len(str(toplist[0][1])) if not GiMiKify else len(gimikify(toplist[0][1], units))
     j = 10 if GiMiKify and j < 10 else j
-    for i in range(4, Y):
+    for i in range(0, Y-4):
       if i > len(toplist):
         break
-      item, value = toplist[i-1]
+      item, value = toplist[i]
       value = gimikify(value, units) if GiMiKify else str(value)
-      SCREEN.addnstr(i, 0, value.rjust(j) + "  " + item, X)
+      SCREEN.addnstr(i+4, 0, value.rjust(j) + "  " + item, X)
   SCREEN.refresh()
 
 def update_ratings(requests):
