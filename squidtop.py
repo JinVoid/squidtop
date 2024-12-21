@@ -55,17 +55,12 @@ def _exit(status, message):
   except SystemExit:
     os._exit(status)
 
-def gimikify(n, units=1024):
-  suffix = 'KMGTPEZY'
-  d = units; j = 0
-  while d < n:
-    if (n / d) < units:
-      break
-    d *= units; j += 1
-  if n > (units - 1):
-    return "%.2f" % (n / d) + suffix[j]
-  else:
-    return str(n)
+def gimikify(x, units=1024):
+  suffix = ['','K','M','G','T','P','E','Z','Y']
+  i = len(suffix) - 1
+  while i > 0 and x / (units ** i) < 1:
+    i -= 1
+  return str(x / (units ** i)) + suffix[i]
 
 def time_string(s):
   h = s // 3600; s -= h * 3600; h = str(h).zfill(2)
