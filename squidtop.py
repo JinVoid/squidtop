@@ -56,11 +56,11 @@ def _exit(status, message):
     os._exit(status)
 
 def gimikify(x, units=1024):
-  suffix = ['','K','M','G','T','P','E','Z','Y']
-  i = len(suffix) - 1
-  while i > 0 and x / (units ** i) < 1:
-    i -= 1
-  return str(x / (units ** i)) + suffix[i]
+  suffix = ('','K','M','G','T','P','E','Z','Y')
+  for i in range(len(suffix)):
+    if x < units ** (i + 1):
+      break
+  return str(x / units ** i) + suffix[i]
 
 def time_string(s):
   h = s // 3600; s -= h * 3600; h = str(h).zfill(2)
